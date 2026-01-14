@@ -539,7 +539,12 @@ CHIP_ERROR CASESession::EstablishSession(SessionManager & sessionManager, Fabric
     if (peerAddress.GetTransportType() == Transport::Type::kTcp)
     {
 #if INET_CONFIG_ENABLE_TCP_ENDPOINT
-        err = sessionManager.TCPConnect(peerAddress, nullptr, mPeerConnState);
+        mTCPConnCbCtxt.appContext     = this;
+        mTCPConnCbCtxt.connCompleteCb = HandleTCPConnectionComplete;
+        mTCPConnCbCtxt.connClosedCb   = HandleTCPConnectionClosed;
+        mTCPConnCbCtxt.connReceivedCb = nullptr;
+
+        err = sessionManager.TCPConnect(peerAddress, &mTCPConnCbCtxt, mPeerConnState);
         SuccessOrExit(err);
 #else
         err = CHIP_ERROR_NOT_IMPLEMENTED;
@@ -667,6 +672,26 @@ CHIP_ERROR CASESession::RecoverInitiatorIpk()
 }
 
 #if INET_CONFIG_ENABLE_TCP_ENDPOINT
+void CASESession::HandleTCPConnectionComplete(Transport::ActiveTCPConnectionHandle & conn, CHIP_ERROR conErr)
+{
+    Transport::AppTCPConnectionCallbackCtxt * appTCPConnCbCtxt = conn->mAppState;
+    VerifyOrReturn(appTCPConnCbCtxt != nullptr);
+    CASESession * session = reinterpret_cast<CASESession *>(appTCPConnCbCtxt->appContext);
+    VerifyOrReturn(session != nullptr);
+
+    session->HandleConnectionAttemptComplete(conn, conErr);
+}
+
+void CASESession::HandleTCPConnectionClosed(Transport::ActiveTCPConnectionState & conn, CHIP_ERROR conErr)
+{
+    Transport::AppTCPConnectionCallbackCtxt * appTCPConnCbCtxt = conn.mAppState;
+    VerifyOrReturn(appTCPConnCbCtxt != nullptr);
+    CASESession * session = reinterpret_cast<CASESession *>(appTCPConnCbCtxt->appContext);
+    VerifyOrReturn(session != nullptr);
+
+    session->HandleConnectionClosed(conn, conErr);
+}
+
 void CASESession::HandleConnectionAttemptComplete(const Transport::ActiveTCPConnectionHandle & conn, CHIP_ERROR err)
 {
     VerifyOrReturn(conn == mPeerConnState);
@@ -713,6 +738,14 @@ void CASESession::HandleConnectionClosed(const Transport::ActiveTCPConnectionSta
     // can close proactively if that's appropriate.
     mPeerConnState.Release();
     ChipLogDetail(SecureChannel, "TCP Connection for this session has closed");
+
+    // The connection closed while we were establishing a session. This is a failure.
+    CHIP_ERROR err = conErr;
+    if (err == CHIP_NO_ERROR)
+    {
+        err = CHIP_ERROR_CONNECTION_CLOSED_UNEXPECTEDLY;
+    }
+    AbortPendingEstablish(err);
 }
 #endif // INET_CONFIG_ENABLE_TCP_ENDPOINT
 
