@@ -294,6 +294,26 @@ public:
         return Optional<SessionHandle>::Missing();
     }
 
+#if INET_CONFIG_ENABLE_TCP_ENDPOINT
+    void MarkSessionOverTCPForEviction(const ActiveTCPConnectionHandle & conn)
+    {
+        mEntries.ForEachActiveObject([&](UnauthenticatedSession * session) {
+            if (session->GetTCPConnection() == conn)
+            {
+                // The connection is closed, so we should release the reference to it.
+                session->ReleaseTCPConnection();
+
+                // If the session has no other references, we can release it.
+                if (session->GetReferenceCount() == 0)
+                {
+                    mEntries.ReleaseObject(static_cast<EntryType *>(session));
+                }
+            }
+            return Loop::Continue;
+        });
+    }
+#endif // INET_CONFIG_ENABLE_TCP_ENDPOINT
+
 private:
     using EntryType = detail::UnauthenticatedSessionPoolEntry<kMaxSessionCount>;
     friend EntryType;
