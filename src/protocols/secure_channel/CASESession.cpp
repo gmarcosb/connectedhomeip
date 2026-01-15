@@ -713,6 +713,14 @@ void CASESession::HandleConnectionClosed(const Transport::ActiveTCPConnectionSta
     // can close proactively if that's appropriate.
     mPeerConnState.Release();
     ChipLogDetail(SecureChannel, "TCP Connection for this session has closed");
+
+    // The connection closed while we were establishing a session. This is a failure.
+    CHIP_ERROR err = conErr;
+    if (err == CHIP_NO_ERROR)
+    {
+        err = CHIP_ERROR_CONNECTION_CLOSED_UNEXPECTEDLY;
+    }
+    AbortPendingEstablish(err);
 }
 #endif // INET_CONFIG_ENABLE_TCP_ENDPOINT
 

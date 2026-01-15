@@ -559,6 +559,22 @@ void SessionManager::ExpireAllPASESessions()
         }
         return Loop::Continue;
     });
+
+    // Notify the unauthenticated sessions of the connection closure.
+    mUnauthenticatedSessions.ForEachSession([&](auto * session) {
+        if (session->GetTCPConnection() == conn)
+        {
+            SessionHandle handle(*session);
+            // Notify the SessionConnection delegate of the connection
+            // closure.
+            if (mConnDelegate != nullptr)
+            {
+                mConnDelegate->OnTCPConnectionClosed(conn, handle, conErr);
+            }
+        }
+
+        return Loop::Continue;
+    });
 }
 
 void SessionManager::ExpireAllSecureSessions()

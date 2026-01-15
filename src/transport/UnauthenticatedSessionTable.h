@@ -294,6 +294,12 @@ public:
         return Optional<SessionHandle>::Missing();
     }
 
+    template <typename Function>
+    Loop ForEachSession(Function && function)
+    {
+        return mEntries.ForEachActiveObject(std::forward<Function>(function));
+    }
+
 private:
     using EntryType = detail::UnauthenticatedSessionPoolEntry<kMaxSessionCount>;
     friend EntryType;
