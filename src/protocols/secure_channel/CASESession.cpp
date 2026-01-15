@@ -539,12 +539,7 @@ CHIP_ERROR CASESession::EstablishSession(SessionManager & sessionManager, Fabric
     if (peerAddress.GetTransportType() == Transport::Type::kTcp)
     {
 #if INET_CONFIG_ENABLE_TCP_ENDPOINT
-        mTCPConnCbCtxt.appContext     = this;
-        mTCPConnCbCtxt.connCompleteCb = HandleTCPConnectionComplete;
-        mTCPConnCbCtxt.connClosedCb   = HandleTCPConnectionClosed;
-        mTCPConnCbCtxt.connReceivedCb = nullptr;
-
-        err = sessionManager.TCPConnect(peerAddress, &mTCPConnCbCtxt, mPeerConnState);
+        err = sessionManager.TCPConnect(peerAddress, nullptr, mPeerConnState);
         SuccessOrExit(err);
 #else
         err = CHIP_ERROR_NOT_IMPLEMENTED;
@@ -672,26 +667,6 @@ CHIP_ERROR CASESession::RecoverInitiatorIpk()
 }
 
 #if INET_CONFIG_ENABLE_TCP_ENDPOINT
-void CASESession::HandleTCPConnectionComplete(Transport::ActiveTCPConnectionHandle & conn, CHIP_ERROR conErr)
-{
-    Transport::AppTCPConnectionCallbackCtxt * appTCPConnCbCtxt = conn->mAppState;
-    VerifyOrReturn(appTCPConnCbCtxt != nullptr);
-    CASESession * session = reinterpret_cast<CASESession *>(appTCPConnCbCtxt->appContext);
-    VerifyOrReturn(session != nullptr);
-
-    session->HandleConnectionAttemptComplete(conn, conErr);
-}
-
-void CASESession::HandleTCPConnectionClosed(Transport::ActiveTCPConnectionState & conn, CHIP_ERROR conErr)
-{
-    Transport::AppTCPConnectionCallbackCtxt * appTCPConnCbCtxt = conn.mAppState;
-    VerifyOrReturn(appTCPConnCbCtxt != nullptr);
-    CASESession * session = reinterpret_cast<CASESession *>(appTCPConnCbCtxt->appContext);
-    VerifyOrReturn(session != nullptr);
-
-    session->HandleConnectionClosed(conn, conErr);
-}
-
 void CASESession::HandleConnectionAttemptComplete(const Transport::ActiveTCPConnectionHandle & conn, CHIP_ERROR err)
 {
     VerifyOrReturn(conn == mPeerConnState);
